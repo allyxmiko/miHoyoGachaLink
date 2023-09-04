@@ -31,7 +31,6 @@ func NewGacha(gachaType string) *Gacha {
 	}
 	gacha.GetLogPath(gachaConfig.BaseLogPath)
 	gacha.GetDataPath(gachaConfig.BaseDataPath)
-	gacha.GetGachaLink()
 	return gacha
 }
 
@@ -102,9 +101,10 @@ func (g *Gacha) ParseGachaLink() string {
 	return match[len(match)-1][0]
 }
 
-func (g *Gacha) GetGachaLink() {
+func (g *Gacha) GetGachaLink() string {
 	// 返回链接
-	g.GachaLink = g.ParseGachaLink()
+	link := g.ParseGachaLink()
 	// 清理临时文件
 	utils.CleanTempFile(g.LogPath, g.DataPath)
+	return link
 }
