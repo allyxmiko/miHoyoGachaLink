@@ -1,6 +1,6 @@
 package constant
 
 const (
-	Genshin  = "原神"
-	StarRail = "星穹铁道"
+	Genshin  = "genshin"
+	StarRail = "starrail"
 )

@@ -1,12 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"miHoyoGachaLink/constant"
-	"miHoyoGachaLink/gacha"
+	"miHoyoGachaLink/server"
 )
 
 func main() {
-	sr := gacha.NewGacha(constant.StarRail)
-	fmt.Println(sr.GachaLink)
+	server.Start()
 }
