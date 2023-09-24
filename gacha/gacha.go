@@ -13,7 +13,7 @@ import (
 )
 
 type Gacha struct {
-	GachaLink   string
+	Link        string
 	GachaType   string
 	LogPath     string
 	DataPath    string
@@ -21,32 +21,43 @@ type Gacha struct {
 	LinkPartten string
 }
 
-func NewGacha(gachaType string) *Gacha {
-
-	gachaConfig := config.NewGachaConfig(gachaType)
+func NewGacha(gachaType string) (*Gacha, error) {
+	var err error
+	var gachaConfig *config.GachaConfig
+	if gachaConfig, err = config.NewGachaConfig(gachaType); err != nil {
+		return nil, err
+	}
 	gacha := &Gacha{
 		GachaType:   gachaType,
 		DataPartten: gachaConfig.DataPartten,
 		LinkPartten: gachaConfig.LinkPartten,
 	}
-	gacha.GetLogPath(gachaConfig.BaseLogPath)
-	gacha.GetDataPath(gachaConfig.BaseDataPath)
-	return gacha
+	if err = gacha.GetLogPath(gachaConfig.BaseLogPath); err != nil {
+		return nil, err
+	}
+	if err = gacha.GetDataPath(gachaConfig.BaseDataPath); err != nil {
+		return nil, err
+	}
+	if err = gacha.GetGachaLink(); err != nil {
+		return nil, err
+	}
+	return gacha, nil
 }
 
-func (g *Gacha) GetLogPath(baseLog string) {
+func (g *Gacha) GetLogPath(baseLog string) error {
 	logPath := filepath.Join(utils.HomeDir(), baseLog)
 	if file, err := os.Stat(logPath); err != nil {
-		log.Fatalln(file.Name() + "文件不存在！")
+		return NewFileNotExistError(file.Name())
 	}
 	g.LogPath = utils.CopyFileToTemp(logPath)
+	return nil
 }
 
-func (g *Gacha) GetDataPath(baseData string) {
+func (g *Gacha) GetDataPath(baseData string) error {
 	var file *os.File
 	var err error
 	if file, err = os.OpenFile(g.LogPath, os.O_RDONLY, 0666); err != nil {
-		log.Fatalln("日志文件读取失败！")
+		return NewFileReadError(file.Name())
 	}
 	defer func(file *os.File) {
 		if err = file.Close(); err != nil {
@@ -71,40 +82,47 @@ func (g *Gacha) GetDataPath(baseData string) {
 	}
 
 	if match == "" {
-		log.Fatalln("未解析到数据文件路径！")
+		return NewDataFilePathParseError(file.Name())
 	}
 
 	dataPath := filepath.Join(match, baseData)
 	var fi os.FileInfo
 	if fi, err = os.Stat(dataPath); err != nil {
-		log.Fatalln(fi.Name() + "文件不存在！")
+		return NewFileNotExistError(fi.Name())
 	}
 	expTime := int64(2 * 3600)
 	modTime := fi.ModTime().Unix()
 	now := time.Now().Unix()
 	if now-modTime > expTime {
-		log.Fatalln("数据文件已过期！请登录" + g.GachaType + "查看抽卡记录以刷新有效期！")
+		return NewDataFileExpiredError(fi.Name(), g.GachaType)
 	}
 	g.DataPath = utils.CopyFileToTemp(dataPath)
+	return nil
 }
 
-func (g *Gacha) ParseGachaLink() string {
+func (g *Gacha) ParseGachaLink() (string, error) {
 	var data []byte
 	var err error
 	if data, err = os.ReadFile(g.DataPath); err != nil {
-		log.Fatalln("文件读取失败！")
+		return "", NewFileReadError(g.DataPath)
 	}
 	match := utils.RegexpParser(g.LinkPartten, string(data))
 	if len(match) == 0 {
-		log.Fatalln("未匹配到抽卡链接!请登录" + g.GachaType + "查看抽卡记录以刷新链接！")
+		return "", NewLinkParseError(g.GachaType)
 	}
-	return match[len(match)-1][0]
+	return match[len(match)-1][0], nil
 }
 
-func (g *Gacha) GetGachaLink() string {
+func (g *Gacha) GetGachaLink() error {
+	var err error
 	// 返回链接
-	link := g.ParseGachaLink()
-	// 清理临时文件
+	if g.Link, err = g.ParseGachaLink(); err != nil {
+		return err
+	}
+	g.CleanTempFile()
+	return nil
+}
+
+func (g *Gacha) CleanTempFile() {
 	utils.CleanTempFile(g.LogPath, g.DataPath)
-	return link
 }

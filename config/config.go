@@ -9,12 +9,24 @@ type GachaConfig struct {
 	LinkPartten  string
 }
 
-func NewGachaConfig(configType string) *GachaConfig {
+type SupportedTypeError struct {
+}
+
+func (s *SupportedTypeError) Error() string {
+	return "不支持的配置类型"
+}
+
+func NewSupportedTypeError() error {
+	return &SupportedTypeError{}
+}
+
+func NewGachaConfig(configType string) (*GachaConfig, error) {
 	switch configType {
 	case constant.Genshin:
-		return newGenshinConfig()
+		return newGenshinConfig(), nil
 	case constant.StarRail:
-		return newStarRailConfig()
+		return newStarRailConfig(), nil
+	default:
+		return nil, NewSupportedTypeError()
 	}
-	panic("不支持的配置类型")
 }
