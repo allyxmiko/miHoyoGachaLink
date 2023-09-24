@@ -6,9 +6,9 @@ import (
 )
 
 type Resp struct {
-	code int
-	msg  string
-	data interface{}
+	Code int         `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
 }
 
 func Start() {
@@ -21,7 +21,7 @@ func Start() {
 			"请求成功！",
 			gachc.GetGachaLink(),
 		}
-		return c.JSONP(r)
+		return c.JSON(r)
 	})
 	if err := app.Listen("127.0.0.1:64127"); err != nil {
 		return
