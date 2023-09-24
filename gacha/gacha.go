@@ -13,12 +13,9 @@ import (
 )
 
 type Gacha struct {
-	Link        string
-	GachaType   string
-	LogPath     string
-	DataPath    string
-	DataPartten string
-	LinkPartten string
+	Link      string
+	GachaType string
+	Config    *config.GachaConfig
 }
 
 func NewGacha(gachaType string) (*Gacha, error) {
@@ -28,15 +25,8 @@ func NewGacha(gachaType string) (*Gacha, error) {
 		return nil, err
 	}
 	gacha := &Gacha{
-		GachaType:   gachaType,
-		DataPartten: gachaConfig.DataPartten,
-		LinkPartten: gachaConfig.LinkPartten,
-	}
-	if err = gacha.GetLogPath(gachaConfig.BaseLogPath); err != nil {
-		return nil, err
-	}
-	if err = gacha.GetDataPath(gachaConfig.BaseDataPath); err != nil {
-		return nil, err
+		GachaType: gachaType,
+		Config:    gachaConfig,
 	}
 	if err = gacha.GetGachaLink(); err != nil {
 		return nil, err
@@ -44,20 +34,19 @@ func NewGacha(gachaType string) (*Gacha, error) {
 	return gacha, nil
 }
 
-func (g *Gacha) GetLogPath(baseLog string) error {
+func (g *Gacha) GetLogPath(baseLog string) (string, error) {
 	logPath := filepath.Join(utils.HomeDir(), baseLog)
 	if file, err := os.Stat(logPath); err != nil {
-		return NewFileNotExistError(file.Name())
+		return "", NewFileNotExistError(file.Name())
 	}
-	g.LogPath = utils.CopyFileToTemp(logPath)
-	return nil
+	return utils.CopyFileToTemp(logPath), nil
 }
 
-func (g *Gacha) GetDataPath(baseData string) error {
+func (g *Gacha) GetDataPath(logPath, baseData string) (string, error) {
 	var file *os.File
 	var err error
-	if file, err = os.OpenFile(g.LogPath, os.O_RDONLY, 0666); err != nil {
-		return NewFileReadError(file.Name())
+	if file, err = os.OpenFile(logPath, os.O_RDONLY, 0666); err != nil {
+		return "", NewFileReadError(file.Name())
 	}
 	defer func(file *os.File) {
 		if err = file.Close(); err != nil {
@@ -74,7 +63,7 @@ func (g *Gacha) GetDataPath(baseData string) error {
 				break
 			}
 		}
-		list := utils.RegexpParser(g.DataPartten, string(line))
+		list := utils.RegexpParser(g.Config.DataPartten, string(line))
 		if len(list) != 0 {
 			match = list[0][0]
 			break
@@ -82,31 +71,30 @@ func (g *Gacha) GetDataPath(baseData string) error {
 	}
 
 	if match == "" {
-		return NewDataFilePathParseError(file.Name())
+		return "", NewDataFilePathParseError(file.Name())
 	}
 
 	dataPath := filepath.Join(match, baseData)
 	var fi os.FileInfo
 	if fi, err = os.Stat(dataPath); err != nil {
-		return NewFileNotExistError(fi.Name())
+		return "", NewFileNotExistError(fi.Name())
 	}
 	expTime := int64(2 * 3600)
 	modTime := fi.ModTime().Unix()
 	now := time.Now().Unix()
 	if now-modTime > expTime {
-		return NewDataFileExpiredError(fi.Name(), g.GachaType)
+		return "", NewDataFileExpiredError(fi.Name(), g.GachaType)
 	}
-	g.DataPath = utils.CopyFileToTemp(dataPath)
-	return nil
+	return utils.CopyFileToTemp(dataPath), nil
 }
 
-func (g *Gacha) ParseGachaLink() (string, error) {
+func (g *Gacha) ParseGachaLink(dataPath string) (string, error) {
 	var data []byte
 	var err error
-	if data, err = os.ReadFile(g.DataPath); err != nil {
-		return "", NewFileReadError(g.DataPath)
+	if data, err = os.ReadFile(dataPath); err != nil {
+		return "", NewFileReadError(dataPath)
 	}
-	match := utils.RegexpParser(g.LinkPartten, string(data))
+	match := utils.RegexpParser(g.Config.LinkPartten, string(data))
 	if len(match) == 0 {
 		return "", NewLinkParseError(g.GachaType)
 	}
@@ -115,14 +103,22 @@ func (g *Gacha) ParseGachaLink() (string, error) {
 
 func (g *Gacha) GetGachaLink() error {
 	var err error
-	// 返回链接
-	if g.Link, err = g.ParseGachaLink(); err != nil {
+	var logPath string
+	var dataPath string
+	if logPath, err = g.GetLogPath(g.Config.BaseLogPath); err != nil {
 		return err
 	}
-	g.CleanTempFile()
+	if dataPath, err = g.GetDataPath(logPath, g.Config.BaseDataPath); err != nil {
+		return err
+	}
+	// 返回链接
+	if g.Link, err = g.ParseGachaLink(dataPath); err != nil {
+		return err
+	}
+	g.CleanTempFile(logPath, dataPath)
 	return nil
 }
 
-func (g *Gacha) CleanTempFile() {
-	utils.CleanTempFile(g.LogPath, g.DataPath)
+func (g *Gacha) CleanTempFile(files ...string) {
+	utils.CleanTempFile(files...)
 }
