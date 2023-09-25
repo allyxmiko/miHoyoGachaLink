@@ -15,7 +15,10 @@ func Start() {
 	var err error
 	var gachc *gacha.Gacha
 	var jsonb *Resp
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		DisableStartupMessage: true,
+		GETOnly:               true,
+	})
 	app.Get("/gacha/:gtype", func(c *fiber.Ctx) error {
 		gtype := c.Params("gtype")
 		if gachc, err = gacha.NewGacha(gtype); err != nil {
