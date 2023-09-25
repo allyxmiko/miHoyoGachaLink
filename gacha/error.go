@@ -49,7 +49,7 @@ func (d *DataFileExpiredError) Error() string {
 	case constant.Genshin:
 		plt = "原神"
 	case constant.StarRail:
-		plt = "星穷铁道"
+		plt = "星穹铁道"
 	default:
 		plt = "游戏"
 	}
