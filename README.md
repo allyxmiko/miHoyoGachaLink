@@ -1,6 +1,9 @@
 # 项目介绍
 本项目可以通过http链接获取到原神和星穹铁道的抽卡链接
 
+# 下载
+前往[releases](https://github.com/allyxmiko/miHoyoGachaLink/releases)下载最新版
+
 # 编译
 1. 下载源码
 2. 在项目目录使用`go build`命令进行编译
