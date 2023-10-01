@@ -7,6 +7,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // HomeDir 获取家目录
@@ -58,10 +59,64 @@ func CleanTempFile(filePaths ...string) {
 }
 
 // RegexpParser 正则匹配
-func RegexpParser(pattern string, content string) [][]string {
+func RegexpParser(pattern string) *regexp.Regexp {
 	reg, err := regexp.Compile(pattern)
 	if err != nil {
 		log.Fatalln("正则表达式解析失败！")
 	}
-	return reg.FindAllStringSubmatch(content, -1)
+	return reg
+}
+
+func compareVersions(version1, version2 string) int {
+	parts1 := strings.Split(version1, ".")
+	parts2 := strings.Split(version2, ".")
+
+	// 比较版本号的每个部分
+	for i := 0; i < len(parts1) && i < len(parts2); i++ {
+		part1 := parts1[i]
+		part2 := parts2[i]
+
+		// 将部分转换为整数进行比较
+		num1 := atoi(part1)
+		num2 := atoi(part2)
+
+		if num1 < num2 {
+			return -1
+		} else if num1 > num2 {
+			return 1
+		}
+	}
+
+	// 如果前面的部分都相同，较长的版本号更大
+	if len(parts1) < len(parts2) {
+		return -1
+	} else if len(parts1) > len(parts2) {
+		return 1
+	}
+
+	// 版本号相同
+	return 0
+}
+
+func atoi(s string) int {
+	num := 0
+	for i := 0; i < len(s); i++ {
+		num = num*10 + int(s[i]-'0')
+	}
+	return num
+}
+
+func FindMaxVersion(versions []string) string {
+	if len(versions) == 0 {
+		return ""
+	}
+
+	maxVersion := versions[0]
+	for i := 1; i < len(versions); i++ {
+		if compareVersions(versions[i], maxVersion) > 0 {
+			maxVersion = versions[i]
+		}
+	}
+
+	return maxVersion
 }

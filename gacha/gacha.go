@@ -63,7 +63,8 @@ func (g *Gacha) GetDataPath(logPath, baseData string) (string, error) {
 				break
 			}
 		}
-		list := utils.RegexpParser(g.Config.DataPartten, string(line))
+		reg := utils.RegexpParser(g.Config.DataPartten)
+		list := reg.FindAllStringSubmatch(string(line), -1)
 		if len(list) != 0 {
 			match = list[0][0]
 			break
@@ -73,8 +74,9 @@ func (g *Gacha) GetDataPath(logPath, baseData string) (string, error) {
 	if match == "" {
 		return "", NewDataFilePathParseError(file.Name())
 	}
+	cacheDir := filepath.Join(match, "webCaches")
+	dataPath := filepath.Join(cacheDir, g.GetVersionDir(cacheDir), baseData)
 
-	dataPath := filepath.Join(match, baseData)
 	var fi os.FileInfo
 	if fi, err = os.Stat(dataPath); err != nil {
 		return "", NewFileNotExistError(fi.Name())
@@ -94,7 +96,8 @@ func (g *Gacha) ParseGachaLink(dataPath string) (string, error) {
 	if data, err = os.ReadFile(dataPath); err != nil {
 		return "", NewFileReadError(dataPath)
 	}
-	match := utils.RegexpParser(g.Config.LinkPartten, string(data))
+	reg := utils.RegexpParser(g.Config.LinkPartten)
+	match := reg.FindAllStringSubmatch(string(data), -1)
 	if len(match) == 0 {
 		return "", NewLinkParseError(g.GachaType)
 	}
@@ -121,4 +124,35 @@ func (g *Gacha) GetGachaLink() error {
 
 func (g *Gacha) CleanTempFile(files ...string) {
 	utils.CleanTempFile(files...)
+}
+
+func (g *Gacha) GetVersionDir(cacheDir string) string {
+	var cachePathArr []string
+	var dir *os.File
+	var err error
+	var ens []os.DirEntry
+	if dir, err = os.Open(cacheDir); err != nil {
+		log.Println(err)
+		return ""
+	}
+	defer func(dir *os.File) {
+		if err = dir.Close(); err != nil {
+			log.Println(err)
+			return
+		}
+	}(dir)
+	if ens, err = dir.ReadDir(0); err != nil {
+		log.Println(err)
+		return ""
+	}
+
+	for _, entry := range ens {
+		if entry.IsDir() {
+			reg := utils.RegexpParser("^\\d+\\.\\d+\\.\\d+\\.\\d+")
+			if reg.MatchString(entry.Name()) {
+				cachePathArr = append(cachePathArr, entry.Name())
+			}
+		}
+	}
+	return utils.FindMaxVersion(cachePathArr)
 }
